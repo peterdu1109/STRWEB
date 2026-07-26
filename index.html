@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>AEON — Terre en Guerre</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌍</text></svg>" />
+<link rel="stylesheet" href="./src/styles.css" />
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+
+<!-- ============================ CANVAS 3D ============================ -->
+<canvas id="scene"></canvas>
+<canvas id="overlay"></canvas>
+
+<!-- ============================ ÉCRAN DE CHARGEMENT ============================ -->
+<div id="boot" class="screen">
+  <div class="boot-inner">
+    <div class="logo">AEON</div>
+    <div class="logo-sub">TERRE EN GUERRE</div>
+    <div class="boot-bar"><i id="bootFill"></i></div>
+    <div class="boot-text" id="bootText">Initialisation du noyau…</div>
+  </div>
+</div>
+
+<!-- ============================ MENU PRINCIPAL ============================ -->
+<div id="menu" class="screen hidden">
+  <div class="menu-grid">
+    <!-- Colonne gauche : navigation -->
+    <div class="menu-left">
+      <div class="brand">
+        <div class="logo">AEON</div>
+        <div class="logo-sub">TERRE EN GUERRE</div>
+        <div class="brand-line"></div>
+        <p class="tagline">De la pierre taillée aux réacteurs à singularité.<br/>Sept âges. Cinq races. Une planète.</p>
+      </div>
+
+      <nav class="mainnav">
+        <button class="nav-btn active" data-panel="play"><span class="k">01</span> Escarmouche</button>
+        <button class="nav-btn" data-panel="races"><span class="k">02</span> Races</button>
+        <button class="nav-btn" data-panel="ages"><span class="k">03</span> Âges</button>
+        <button class="nav-btn" data-panel="help"><span class="k">04</span> Commandes</button>
+        <button class="nav-btn" data-panel="options"><span class="k">05</span> Options</button>
+      </nav>
+
+      <div class="menu-foot">
+        <span class="dot"></span> Moteur temps réel · WebGL2
+      </div>
+    </div>
+
+    <!-- Colonne centrale : panneaux -->
+    <div class="menu-center">
+      <!-- PANEL JOUER -->
+      <section class="panel active" id="panel-play">
+        <h2>Configuration de l'escarmouche</h2>
+
+        <div class="field">
+          <label>Votre race</label>
+          <div class="race-strip" id="raceStrip"></div>
+        </div>
+
+        <div class="field">
+          <label>Théâtre d'opérations <em id="regionHint">— cliquez un marqueur sur le globe</em></label>
+          <div class="region-strip" id="regionStrip"></div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Adversaires</label>
+            <div class="seg" id="segOpponents">
+              <button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Difficulté IA</label>
+            <div class="seg" id="segDifficulty">
+              <button data-v="0">Recrue</button><button data-v="1" class="on">Vétéran</button><button data-v="2">Implacable</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Départ</label>
+            <div class="seg" id="segStart">
+              <button data-v="0" class="on">Âge de Pierre</button><button data-v="2">Médiéval</button><button data-v="4">Moderne</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Menace extraterrestre</label>
+            <div class="seg" id="segAliens">
+              <button data-v="0">Aucune</button><button data-v="1" class="on">Progressive</button><button data-v="2">Cataclysme</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="launch-row">
+          <button id="btnLaunch" class="cta">
+            <span>LANCER L'INVASION</span>
+            <svg viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="launch-meta" id="launchMeta"></div>
+        </div>
+      </section>
+
+      <!-- PANEL RACES -->
+      <section class="panel" id="panel-races">
+        <h2>Les cinq races</h2>
+        <div class="race-cards" id="raceCards"></div>
+      </section>
+
+      <!-- PANEL AGES -->
+      <section class="panel" id="panel-ages">
+        <h2>La marche des âges</h2>
+        <div class="age-track" id="ageTrack"></div>
+      </section>
+
+      <!-- PANEL AIDE -->
+      <section class="panel" id="panel-help">
+        <h2>Commandes</h2>
+        <div class="help-grid">
+          <div class="help-card">
+            <h3>Souris</h3>
+            <ul>
+              <li><b>Clic gauche</b> — sélectionner / valider</li>
+              <li><b>Glisser</b> — sélection rectangulaire</li>
+              <li><b>Clic droit</b> — déplacer, attaquer, récolter, construire</li>
+              <li><b>Molette</b> — zoom</li>
+              <li><b>Clic milieu</b> — pivoter la caméra</li>
+              <li><b>Double-clic</b> — sélectionner toutes les unités du même type</li>
+            </ul>
+          </div>
+          <div class="help-card">
+            <h3>Clavier</h3>
+            <ul>
+              <li><b>Z Q S D / flèches</b> — déplacer la caméra</li>
+              <li><b>A / E</b> — pivoter · <b>R</b> — recentrer</li>
+              <li><b>Espace</b> — dernière alerte</li>
+              <li><b>Ctrl+1..9</b> — créer un groupe · <b>1..9</b> — rappeler</li>
+              <li><b>H</b> — centre de commandement · <b>O</b> — ouvriers inactifs</li>
+              <li><b>P</b> — pause · <b>Échap</b> — annuler / menu</li>
+            </ul>
+          </div>
+          <div class="help-card">
+            <h3>Boucle de jeu</h3>
+            <ul>
+              <li>Récoltez <b>nourriture</b>, <b>matériaux</b> et <b>énergie</b>.</li>
+              <li>Construisez des <b>habitats</b> pour la population.</li>
+              <li>Passez les <b>âges</b> depuis le centre de commandement.</li>
+              <li>Détruisez tous les centres ennemis pour vaincre.</li>
+              <li>Survivez aux <b>vagues extraterrestres</b> hostiles à tous.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- PANEL OPTIONS -->
+      <section class="panel" id="panel-options">
+        <h2>Options</h2>
+        <div class="opt-list">
+          <label class="opt"><span>Musique</span><input type="range" id="optMusic" min="0" max="100" value="45"><i id="optMusicVal">45</i></label>
+          <label class="opt"><span>Effets sonores</span><input type="range" id="optSfx" min="0" max="100" value="70"><i id="optSfxVal">70</i></label>
+          <label class="opt"><span>Qualité graphique</span>
+            <span class="seg small" id="segQuality"><button data-v="0">Basse</button><button data-v="1" class="on">Haute</button><button data-v="2">Ultra</button></span>
+          </label>
+          <label class="opt"><span>Ombres portées</span><input type="checkbox" id="optShadows" checked></label>
+          <label class="opt"><span>Défilement par les bords</span><input type="checkbox" id="optEdge" checked></label>
+        </div>
+      </section>
+    </div>
+
+    <!-- Colonne droite : globe -->
+    <div class="menu-right">
+      <div class="globe-wrap">
+        <canvas id="globe"></canvas>
+        <div class="globe-ring"></div>
+        <div class="globe-cap">
+          <div class="gc-title" id="globeTitle">TERRE</div>
+          <div class="gc-sub" id="globeSub">Sélectionnez un théâtre d'opérations</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ HUD DE JEU ============================ -->
+<div id="hud" class="hidden">
+
+  <!-- Barre supérieure -->
+  <div id="topbar">
+    <div class="res" id="resFood"><i class="ico food"></i><b>0</b><em>+0</em></div>
+    <div class="res" id="resMat"><i class="ico mat"></i><b>0</b><em>+0</em></div>
+    <div class="res" id="resEnergy"><i class="ico energy"></i><b>0</b><em>+0</em></div>
+    <div class="res" id="resPop"><i class="ico pop"></i><b>0/0</b></div>
+    <div class="topsep"></div>
+    <div id="ageBox">
+      <div class="age-name" id="ageName">Âge de Pierre</div>
+      <div class="age-bar"><i id="ageFill"></i></div>
+    </div>
+    <div class="topsep"></div>
+    <div id="clock">00:00</div>
+    <div id="threatBox" class="hidden"><span class="th-label">MENACE XÉNO</span><div class="th-bar"><i id="threatFill"></i></div></div>
+    <div class="grow"></div>
+    <button class="topbtn" id="btnSpeed" title="Vitesse de jeu">×1</button>
+    <button class="topbtn" id="btnPause" title="Pause (P)">❚❚</button>
+    <button class="topbtn" id="btnQuit" title="Quitter">✕</button>
+  </div>
+
+  <!-- Alertes -->
+  <div id="alerts"></div>
+
+  <!-- Bandeau d'événement -->
+  <div id="banner" class="hidden"><div class="banner-in"><h3 id="bannerTitle"></h3><p id="bannerText"></p></div></div>
+
+  <!-- Panneau bas -->
+  <div id="bottombar">
+    <div id="minimapWrap">
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <div class="mm-label">TERRE — <span id="mmRegion"></span></div>
+    </div>
+
+    <div id="selPanel">
+      <div id="selHeader">
+        <div id="selPortrait"></div>
+        <div id="selInfo">
+          <div id="selName">Aucune sélection</div>
+          <div id="selStats"></div>
+          <div id="selBar"><i></i></div>
+        </div>
+      </div>
+      <div id="selList"></div>
+      <div id="queueRow"></div>
+    </div>
+
+    <div id="cmdPanel">
+      <div id="cmdGrid"></div>
+      <div id="cmdTip"><b></b><span></span></div>
+    </div>
+  </div>
+
+  <!-- Groupes de contrôle -->
+  <div id="groups"></div>
+</div>
+
+<!-- ============================ ÉCRAN DE FIN ============================ -->
+<div id="endScreen" class="screen hidden">
+  <div class="end-inner">
+    <div class="end-title" id="endTitle">VICTOIRE</div>
+    <div class="end-sub" id="endSub"></div>
+    <div class="end-stats" id="endStats"></div>
+    <div class="end-actions">
+      <button class="cta" id="btnEndMenu">RETOUR AU MENU</button>
+      <button class="ghost" id="btnEndReplay">REJOUER</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ MENU PAUSE ============================ -->
+<div id="pauseScreen" class="screen hidden">
+  <div class="pause-inner">
+    <div class="logo small">PAUSE</div>
+    <button class="cta" id="btnResume">REPRENDRE</button>
+    <button class="ghost" id="btnPauseQuit">ABANDONNER</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

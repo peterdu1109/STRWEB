@@ -1,0 +1,112 @@
+name: Release & Déploiement
+
+# Chaque push sur main publie une nouvelle version :
+#   1. version.json est réécrit avec le numéro de release
+#   2. le site est déployé sur GitHub Pages
+#   3. une Release taguée est créée avec l'archive du jeu
+# Les clients ouverts détectent le changement de version.json
+# et se rechargent automatiquement (voir src/updater.js).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: aeon-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Construction du paquet
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcul de la version
+        id: meta
+        run: |
+          VERSION="v1.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version : $VERSION"
+
+      - name: Assemblage du site
+        run: |
+          mkdir -p _site
+          cp -r index.html src vendor _site/
+          cp README.md LICENSE _site/ 2>/dev/null || true
+          cat > _site/version.json <<EOF
+          {
+            "version": "${{ steps.meta.outputs.version }}",
+            "commit": "${GITHUB_SHA}",
+            "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "name": "AEON — Terre en Guerre"
+          }
+          EOF
+          # évite que GitHub Pages passe le site dans Jekyll
+          touch _site/.nojekyll
+          cat _site/version.json
+
+      - name: Vérification de l'intégrité du paquet
+        run: |
+          set -e
+          for f in _site/index.html _site/version.json _site/vendor/three.module.js \
+                   _site/src/main.js _site/src/game/game.js _site/src/ui/menu.js; do
+            test -s "$f" || { echo "Fichier manquant ou vide : $f"; exit 1; }
+          done
+          echo "Paquet complet : $(find _site -type f | wc -l) fichiers"
+
+      - name: Archive de la release
+        run: cd _site && zip -qr ../aeon-terre-en-guerre.zip . && cd ..
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aeon-zip
+          path: aeon-terre-en-guerre.zip
+          retention-days: 30
+
+  deploy:
+    name: Déploiement GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    name: Publication de la Release
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: aeon-zip
+
+      - name: Création de la Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            aeon-terre-en-guerre.zip \
+            --title "AEON $VERSION" \
+            --generate-notes
