@@ -83,6 +83,9 @@ jobs:
     name: Déploiement GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    # N'échoue pas le workflow tant que Pages n'a pas été activé sur le dépôt
+    # (Réglages ▸ Pages ▸ Source : GitHub Actions).
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -90,9 +93,17 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Rappel si Pages est désactivé
+        if: failure()
+        run: |
+          echo "::warning::GitHub Pages n'est pas activé pour ce dépôt."
+          echo "Activez-le dans Réglages ▸ Pages ▸ Source : GitHub Actions,"
+          echo "puis relancez ce workflow. La Release, elle, a bien été publiée."
+
   release:
     name: Publication de la Release
-    needs: [build, deploy]
+    # indépendant du déploiement : une Release sort à chaque push sur main
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
