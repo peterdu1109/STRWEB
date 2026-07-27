@@ -146,8 +146,18 @@ export class Game{
       if(!this.terrain.isLand(x, z) || this.terrain.slopeAt(x, z) > 0.6) return false;
       for(const n of this.nodes) if(Math.hypot(n.x-x, n.z-z) < 3.4) return false;
       for(const b of this.buildings) if(Math.hypot(b.x-x, b.z-z) < b.def.size*0.9 + 3) return false;
+      // ne jamais faire apparaître un gisement sur une unité : elle se
+      // retrouverait enfermée dans une cellule bloquée
+      for(const u of this.units) if(Math.hypot(u.x-x, u.z-z) < 2.6) return false;
       this.nodes.push(new ResNode(this, res, x, z, amount, region, rnd));
       return true;
+    };
+    const pickRes = ()=>{
+      const wMat = 0.5*bias.mat, wFood = 0.3*bias.food, wEn = 0.2*bias.energy;
+      const pick = rnd() * (wMat + wFood + wEn);
+      if(pick < wMat) return 'mat';
+      if(pick < wMat + wFood) return 'food';
+      return 'energy';
     };
 
     // grappes proches de chaque base
@@ -166,27 +176,40 @@ export class Game{
     }
 
     // dispersion générale
-    const total = 210;
-    for(let i=0;i<total;i++){
-      const r = rnd();
-      let res = 'mat';
-      const wMat = 0.5*bias.mat, wFood = 0.3*bias.food, wEn = 0.2*bias.energy;
-      const sum = wMat + wFood + wEn;
-      const pick = r*sum;
-      if(pick < wMat) res = 'mat';
-      else if(pick < wMat + wFood) res = 'food';
-      else res = 'energy';
+    for(let i=0;i<210;i++){
+      const res = pickRes();
       const x = (rnd()*2-1) * (HALF-10);
       const z = (rnd()*2-1) * (HALF-10);
       place(res, x, z, res === 'energy' ? 380 : 500);
     }
 
-    // forêts décoratives supplémentaires (aussi récoltables)
+    // forêts supplémentaires (récoltables elles aussi)
     const extra = Math.round(60 * (region.trees || 1));
     for(let i=0;i<extra;i++){
       const cx = (rnd()*2-1)*(HALF-20), cz = (rnd()*2-1)*(HALF-20);
       for(let k=0;k<5;k++){
         place('mat', cx + (rnd()-0.5)*16, cz + (rnd()-0.5)*16, 460);
+      }
+    }
+
+    // Plancher de ressources : sur les cartes très maritimes ou très escarpées
+    // (archipel, haute montagne), les tirages aléatoires tombent presque tous à
+    // l'eau. On complète alors par anneaux successifs autour des bases pour
+    // qu'aucune partie ne démarre en pénurie.
+    const FLOOR = 150;
+    if(this.nodes.length < FLOOR){
+      const sites = this.players.filter(p=>p.startSite).map(p=>p.startSite);
+      let guard = 0;
+      for(let ring = 30; ring < HALF && this.nodes.length < FLOOR && guard < 9000; ring += 12){
+        for(const s of sites){
+          for(let t=0;t<90 && this.nodes.length < FLOOR; t++){
+            guard++;
+            const a = rnd()*Math.PI*2;
+            const d = ring + rnd()*12;
+            const res = pickRes();
+            place(res, s.x + Math.cos(a)*d, s.z + Math.sin(a)*d, res === 'energy' ? 380 : 500);
+          }
+        }
       }
     }
   }
@@ -517,14 +540,19 @@ export class Game{
       this.audio.play('move');
       return;
     }
-    if(ent && ent.type === 'building' && ent.player === this.human && !ent.complete){
+    // chantier en cours, ou structure amie endommagée → construction / réparation
+    if(ent && ent.type === 'building' && ent.player === this.human
+       && (!ent.complete || ent.hp < ent.maxHp)){
+      let any = false;
       for(const u of units){
-        if(u.role === 'worker') u.buildAt(ent);
+        if(u.role === 'worker'){ u.buildAt(ent); any = true; }
         else if(ground) u.moveTo(ground.x, ground.z);
       }
-      this.emit('order', {kind:'build', x:ent.x, z:ent.z});
-      this.audio.play('move');
-      return;
+      if(any){
+        this.emit('order', {kind:'build', x:ent.x, z:ent.z});
+        this.audio.play('move');
+        return;
+      }
     }
     if(!ground) return;
 

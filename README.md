@@ -72,7 +72,7 @@ Safari 15+). Aucune installation côté serveur.
 |---|---|
 | Sélectionner / valider | **Clic gauche** |
 | Sélection rectangulaire | **Glisser** |
-| Déplacer · Attaquer · Récolter · Construire | **Clic droit** (contextuel) |
+| Déplacer · Attaquer · Récolter · Construire · **Réparer** | **Clic droit** (contextuel) |
 | Sélectionner tout le même type | **Double-clic** |
 | Déplacer la caméra | **Z Q S D** / flèches / bords de l'écran |
 | Pivoter · Zoomer | **A / E** · **molette** · **clic milieu** |
@@ -90,6 +90,7 @@ Safari 15+). Aucune installation côté serveur.
 3. **Passez les âges** depuis le centre de commandement : chaque âge débloque de
    nouveaux bâtiments, de nouvelles unités et multiplie votre puissance.
 4. **Recherchez** armement, blindage, logistique et réacteurs au laboratoire.
+   Un clic droit d'ouvrier sur une structure amie abîmée la **répare**.
 5. **Détruisez** tous les centres de commandement adverses… en survivant aux
    vagues xéno qui ne font de cadeau à personne.
 

@@ -441,11 +441,14 @@ export class Unit{
     }
   }
 
+  /* Construction ET réparation : une fois la structure achevée, l'ouvrier
+     reste sur place tant qu'il y a des dégâts à réparer. */
   _sBuild(dt){
     const s = this.task && this.task.site;
-    if(!s || s.dead || s.complete){
-      if(s && s.complete){
-        // reprend la récolte automatiquement
+    const finished = s && s.complete && s.hp >= s.maxHp;
+    if(!s || s.dead || finished){
+      if(finished){
+        // travail terminé : l'ouvrier retourne récolter de lui-même
         const n = this.game.findNode(this.x, this.z, 'mat');
         if(n){ this.gatherFrom(n); return; }
       }
@@ -458,11 +461,19 @@ export class Unit{
     }
     this.path = null;
     this._face(s.x, s.z, dt);
-    s.addProgress(dt * (this.player.mods.build || 1) * (1 + 0.12*this.player.upgrades.logistics));
+    const rate = (this.player.mods.build || 1) * (1 + 0.12*this.player.upgrades.logistics);
+    if(!s.complete){
+      s.addProgress(dt * rate);
+    } else {
+      // réparation : ~3 fois plus lente qu'une construction, pour qu'un siège
+      // reste gagnable face à des ouvriers qui colmatent
+      s.hp = Math.min(s.maxHp, s.hp + (s.maxHp / (s.buildTime * 3)) * rate * dt);
+    }
     this.gatherT += dt;
     if(this.gatherT > 0.4){
       this.gatherT = 0;
-      this.game.fx.dust({x:s.x + (Math.random()-0.5)*s.def.size, y:s.y + 0.5, z:s.z + (Math.random()-0.5)*s.def.size}, 0xcbb894, 2);
+      this.game.fx.dust({x:s.x + (Math.random()-0.5)*s.def.size, y:s.y + 0.5, z:s.z + (Math.random()-0.5)*s.def.size},
+        s.complete ? 0x9fd8ff : 0xcbb894, 2);
       this.game.audio.play('build', 0.3);
     }
     this.swing = 0.3;
